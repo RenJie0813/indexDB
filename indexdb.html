@@ -1,0 +1,171 @@
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Title</title>
+    <style>
+        *{margin:0;padding:0}
+    </style>
+</head>
+<body>
+
+<hr>
+<input type="text" id="uid">
+<input type="button" value="新增几条数据" onclick=" Tinsert(); ">
+<input type="button" value="查找一条记录" onclick=" Tselect(); ">
+<input type="button" value="删除一条记录" onclick=" Tdelete(); ">
+<input type="button" value="添加一条记录" onclick=" Tadd(); ">
+<input type="button" value="更新一条记录" onclick=" Tupdate(); ">
+<input type="button" value="清除所有表数据" onclick=" Tclear(); ">
+<script>
+    var uid=document.getElementById("uid"),index_DB={};
+    Tinsert=function () {
+        // 填入初始值
+        index_DB.update(1,{ title: "Quarry Memories", author: "Fred", isbn: 123456 ,uid:1});
+        index_DB.update(2,{ title: "Water Buffaloes", author: "Fred", isbn: 234567 ,uid:3});
+        index_DB.update(3,{ title: "Bedrock Nights", author: "Barney", isbn: 345678 ,uid:5});
+    }
+    Tselect=function () {
+        index_DB.select(parseInt(uid.value),data=>{console.log(data)});
+    }
+
+    Tadd=function () {
+        index_DB.update(2,{ title: "Quarry wu", author: "lex", isbn: 123456,uid:2 });
+    }
+
+    Tdelete=function () {
+        index_DB.delete(parseInt(uid.value));
+    }
+
+    Tclear=function () {
+        index_DB.clear();
+    }
+
+    Tupdate=function Tupdate() {
+        index_DB.update(parseInt(uid.value),{ title: "DDDD wu", author: "lex", isbn: 123456 });
+    }
+
+    /**
+     * indexDB 本地消息存储
+     * @param params
+     */
+    index_DB.dbInit = function(){
+        this.db_name = "chatDB";
+        this.db_version = "1";
+        this.db_store_name = "chatRoom";
+        if (!window.indexedDB)
+        {
+            window.alert("你的浏览器不支持IndexDB,请更换浏览器");
+        }
+
+        var request = indexedDB.open(this.db_name,this.db_version);
+        //打开数据失败
+        request.onerror = function(event)
+        {
+            console.log("不能打开数据库,错误代码: " + event.target.errorCode);
+        };
+        request.onupgradeneeded = function(event)
+        {
+            this.db = event.target.result;
+            var store=this.db.createObjectStore(index_DB.db_store_name,{keyPath:"uid"});
+            store.createIndex("uid","uid",{unique:true});
+        };
+        //打开数据库
+        request.onsuccess = function(event)
+        {
+            //此处采用异步通知. 在使用curd的时候请通过事件触发
+            index_DB.db = event.target.result;
+        };
+    };
+    /**
+     * 添加数据
+     */
+    index_DB.addDb = function(obj)
+    {
+        //此处须显式声明事物
+        var transaction = index_DB.db.transaction(index_DB.db_store_name, "readwrite");
+        var store = transaction.objectStore(index_DB.db_store_name);
+        var request = store.add(obj);
+        request.onsuccess = function(){
+            console.log('添加成功');
+        };
+        request.onerror = function(event){
+            console.log(event.target.error);
+        }
+    };
+    /**
+     * 删除数据
+     *
+     */
+    index_DB.delete = function(id)
+    {
+        // index_DB.db.transaction.objectStore is not a function
+        var request = index_DB.db.transaction(index_DB.db_store_name, "readwrite").objectStore(index_DB.db_store_name).delete(id);
+        request.onsuccess = function(){
+            console.log('删除成功');
+        }
+    };
+    /**
+     * 更新数据
+     * @param key : 索引、主键（id）
+     * @param obj ：数据对象
+     */
+    index_DB.update=function (key,obj) {
+        if(!key){return null}
+        if(typeof obj !="object"){return null}
+        var transaction = index_DB.db.transaction(index_DB.db_store_name,"readwrite");
+        var store = transaction.objectStore(index_DB.db_store_name);
+        var index=store.index("uid");
+        var request = index.get(key);
+        request.onsuccess = function () {
+            var data=request.result;
+            // delete obj.uid;
+            if(data===undefined){
+                //存入的格式{uid:uid,data:[{},{},{},...]}
+                var _obj={
+                    uid:key,
+                    data:[]
+                }
+                _obj.data[0]=obj;
+                index_DB.addDb(_obj);
+                _obj=null;
+            }else{
+                data["data"].push(obj);
+                store.put(data);
+            }
+            data=null;
+        }
+    }
+    /**
+     * 查询操作
+     */
+    index_DB.select = function(key,cb)
+    {
+        //第二个参数可以省略
+        var transaction = index_DB.db.transaction(index_DB.db_store_name,"readonly");
+        var store = transaction.objectStore(index_DB.db_store_name);
+        var index=store.index("uid");
+        if(key)
+            var request = index.get(key);
+        else
+            var request = index.getAll();
+
+        request.onsuccess = function () {
+            if(request.result===undefined){return}
+            cb(request.result);
+        }
+    };
+    /**
+     * 清除整个对象存储(表)
+     */
+    index_DB.clear = function()
+    {
+        var request = index_DB.db.transaction(index_DB.db_store_name,"readwrite").objectStore(index_DB.db_store_name).clear();
+        request.onsuccess = function(){
+            console.log('清除成功');
+        }
+    };
+    index_DB.dbInit();
+
+</script>
+
+</body></html>
